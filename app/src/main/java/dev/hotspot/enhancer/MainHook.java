@@ -114,7 +114,7 @@ public final class MainHook implements IXposedHookLoadPackage {
         tryHook("android.net.wifi.WifiManager", cl, "isStaBridgedApConcurrencySupported",
             new ReturnConstantHook(true));
 
-        // 2. initBandValues -> append "双频" to dropdown list
+        // 2. initBandValues -> append Dual-Band option to dropdown list
         tryHook("com.android.settings.wifi.tether.WifiTetherApBandPreferenceController", cl, "initBandValues",
             new XC_MethodHook() {
                 @Override
@@ -153,7 +153,7 @@ public final class MainHook implements IXposedHookLoadPackage {
         tryHook("com.coui.appcompat.preference.COUIMenuPreference", cl, "getEntryValues",
             entriesGetterHook);
 
-        // 5. initBandIndex -> select "双频" if dual is active
+        // 5. initBandIndex -> select Dual-Band if dual is active
         tryHook("com.android.settings.wifi.tether.WifiTetherApBandPreferenceController", cl, "initBandIndex",
             "android.net.wifi.SoftApConfiguration", new XC_MethodHook() {
                 @Override
@@ -164,7 +164,13 @@ public final class MainHook implements IXposedHookLoadPackage {
                         if (Utils.isDualEnabled(ctx) || Utils.isDualConfig(config)) {
                             Object pref = XposedHelpers.getObjectField(param.thisObject, "mBandPreference");
                             if (pref != null) {
-                                int idx = (Integer) XposedHelpers.callMethod(pref, "findIndexOfValue", Config.DUAL_LABEL);
+                                String label = Config.getDualLabel();
+                                int idx = (Integer) XposedHelpers.callMethod(pref, "findIndexOfValue", label);
+                                if (idx < 0) {
+                                    // Fallback to check other language representation
+                                    String alt = Config.DUAL_LABEL_ZH.equals(label) ? Config.DUAL_LABEL_EN : Config.DUAL_LABEL_ZH;
+                                    idx = (Integer) XposedHelpers.callMethod(pref, "findIndexOfValue", alt);
+                                }
                                 if (idx >= 0) {
                                     param.setResult(idx);
                                 }
@@ -176,7 +182,7 @@ public final class MainHook implements IXposedHookLoadPackage {
                 }
             });
 
-        // 6. covertBandTypeOfBindIndex -> return 3 (BAND_2GHZ | BAND_5GHZ) for "双频"
+        // 6. covertBandTypeOfBindIndex -> return 3 (BAND_2GHZ | BAND_5GHZ) for Dual-Band
         tryHook("com.android.settings.wifi.tether.WifiTetherApBandPreferenceController", cl, "covertBandTypeOfBindIndex",
             String[].class, int.class, new XC_MethodHook() {
                 @Override
@@ -185,7 +191,7 @@ public final class MainHook implements IXposedHookLoadPackage {
                         String[] vals = (String[]) param.args[0];
                         int idx = (Integer) param.args[1];
                         if (vals != null && idx >= 0 && idx < vals.length) {
-                            if (Config.DUAL_LABEL.equals(vals[idx])) {
+                            if (Config.isDualLabel(vals[idx])) {
                                 param.setResult(3);
                             }
                         }
@@ -202,7 +208,7 @@ public final class MainHook implements IXposedHookLoadPackage {
                         String val = (String) param.args[1];
                         Context ctx = (Context) XposedHelpers.getObjectField(param.thisObject, "mContext");
                         if (ctx == null) return;
-                        boolean isDual = Config.DUAL_LABEL.equals(val);
+                        boolean isDual = Config.isDualLabel(val);
                         Settings.Global.putInt(ctx.getContentResolver(), Config.KEY_DUAL_ENABLED, isDual ? 1 : 0);
                         WifiManager wm = ctx.getSystemService(WifiManager.class);
                         if (wm != null) {
@@ -226,7 +232,7 @@ public final class MainHook implements IXposedHookLoadPackage {
                 }
             });
 
-        // 8. COUIPreference.setAssignment -> force "双频" label
+        // 8. COUIPreference.setAssignment -> force Dual-Band label
         tryHook("com.coui.appcompat.preference.COUIPreference", cl, "setAssignment",
             CharSequence.class, new XC_MethodHook() {
                 @Override
@@ -236,7 +242,7 @@ public final class MainHook implements IXposedHookLoadPackage {
                         if ("band".equals(key)) {
                             Context ctx = (Context) XposedHelpers.callMethod(param.thisObject, "getContext");
                             if (Utils.isDualEnabled(ctx)) {
-                                param.args[0] = Config.DUAL_LABEL;
+                                param.args[0] = Config.getDualLabel();
                             }
                         }
                     } catch (Throwable ignored) {}
@@ -253,7 +259,7 @@ public final class MainHook implements IXposedHookLoadPackage {
                         if (Utils.isDualEnabled(ctx)) {
                             Object pref = XposedHelpers.getObjectField(param.thisObject, "mBandPreference");
                             if (pref != null) {
-                                XposedHelpers.callMethod(pref, "setAssignment", Config.DUAL_LABEL);
+                                XposedHelpers.callMethod(pref, "setAssignment", Config.getDualLabel());
                             }
                         }
                     } catch (Throwable ignored) {}
@@ -546,11 +552,13 @@ public final class MainHook implements IXposedHookLoadPackage {
 
         gatewayEdited = false;
 
+        boolean isZh = "zh".equals(ctx.getResources().getConfiguration().locale.getLanguage());
+
         Class<?> catCls = Class.forName("com.coui.appcompat.preference.COUIPreferenceCategory", true, cl);
         final Object cat = catCls.getConstructor(Context.class, android.util.AttributeSet.class)
                 .newInstance(ctx, null);
         initNullLocks(cat);
-        invokeFirst(catCls, cat, "setTitle", "网关地址");
+        invokeFirst(catCls, cat, "setTitle", isZh ? "网关地址" : "Gateway Address");
 
         if (advanceGroup != null) {
             try {
@@ -570,9 +578,9 @@ public final class MainHook implements IXposedHookLoadPackage {
         final Object pref = prefCls.getConstructor(Context.class).newInstance(ctx);
         initNullLocks(pref);
         invokeFirst(prefCls, pref, "setKey", "fixed_gateway");
-        invokeFirst(prefCls, pref, "setTitle", "网关 IP");
-        invokeFirst(prefCls, pref, "setHint", "输入网关地址");
-        invokeFirst(prefCls, pref, "setSummary", "留空时网关地址随机，格式参考：192.168.2.1");
+        invokeFirst(prefCls, pref, "setTitle", isZh ? "网关 IP" : "Gateway IP");
+        invokeFirst(prefCls, pref, "setHint", isZh ? "输入网关地址" : "Enter gateway IP");
+        invokeFirst(prefCls, pref, "setSummary", isZh ? "留空时网关地址随机，格式参考：192.168.2.1" : "Leave empty for random subnet, e.g. 192.168.2.1");
         invokeFirst(prefCls, pref, "setPersistent", Boolean.FALSE);
         invokeFirst(prefCls, pref, "setContent", draftGateway);
 

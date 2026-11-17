@@ -6,7 +6,6 @@ import android.provider.Settings;
 import android.util.Log;
 import android.util.SparseIntArray;
 
-import java.lang.reflect.Method;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.util.Enumeration;
@@ -61,12 +60,14 @@ public final class Utils {
         CharSequence first = arr[0];
         if (first == null) return arr;
         String s = first.toString();
-        if (!s.startsWith("2.4") && !s.startsWith("5") && !s.equals(Config.DUAL_LABEL)) return arr;
+        if (!s.startsWith("2.4") && !s.startsWith("5") && !Config.isDualLabel(s)) return arr;
         CharSequence last = arr[arr.length - 1];
-        if (Config.DUAL_LABEL.equals(last)) return arr;
+        if (Config.isDualLabel(last != null ? last.toString() : null)) return arr;
+
+        String dualLabel = Config.getDualLabel();
         CharSequence[] res = new CharSequence[arr.length + 1];
         System.arraycopy(arr, 0, res, 0, arr.length);
-        res[arr.length] = Config.DUAL_LABEL;
+        res[arr.length] = dualLabel;
         return res;
     }
 
@@ -74,12 +75,14 @@ public final class Utils {
         if (arr == null || arr.length == 0) return arr;
         String first = arr[0];
         if (first == null) return arr;
-        if (!first.startsWith("2.4") && !first.startsWith("5") && !first.equals(Config.DUAL_LABEL)) return arr;
+        if (!first.startsWith("2.4") && !first.startsWith("5") && !Config.isDualLabel(first)) return arr;
         String last = arr[arr.length - 1];
-        if (Config.DUAL_LABEL.equals(last)) return arr;
+        if (Config.isDualLabel(last)) return arr;
+
+        String dualLabel = Config.getDualLabel();
         String[] res = new String[arr.length + 1];
         System.arraycopy(arr, 0, res, 0, arr.length);
-        res[arr.length] = Config.DUAL_LABEL;
+        res[arr.length] = dualLabel;
         return res;
     }
 
