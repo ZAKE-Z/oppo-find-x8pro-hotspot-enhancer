@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="dev.hotspot.enhancer"
+    android:versionCode="1"
+    android:versionName="1.0.0">
+
+    <application
+        android:label="Hotspot Enhancer"
+        android:icon="@mipmap/icon"
+        android:hasCode="false">
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="Hotspot Dual-Band &amp; Custom Gateway Enhancer for ColorOS / Android" />
+        <meta-data
+            android:name="xposedminversion"
+            android:value="93" />
+        <meta-data
+            android:name="xposedscope"
+            android:value="com.android.networkstack.tethering,com.oplus.wirelesssettings,android" />
+    </application>
+</manifest>
